@@ -55,6 +55,7 @@ if [ "$PULL_APKS" = 1 ]; then
         || { echo "  WARN: failed to pull $remote"; failed=1; }
     done < "$dir/apks/$p/paths.txt"
     n_remote=$(wc -l < "$dir/apks/$p/paths.txt" | tr -d ' ')
+    # shellcheck disable=SC2012 # only counting files; package names have no odd characters
     n_local=$(ls "$dir/apks/$p"/*.apk 2>/dev/null | wc -l | tr -d ' ')
     [ "$n_remote" = "$n_local" ] || { echo "  WARN: $p got $n_local of $n_remote APK files"; failed=1; }
     printf '  %-42s %s file(s)\n' "$p" "$n_local"

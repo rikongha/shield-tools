@@ -1,0 +1,4 @@
+# Let shellcheck follow `source "$(dirname "$0")/common.sh"` in every script,
+# so variables and functions defined there are checked where they're used.
+source-path=SCRIPTDIR
+external-sources=true

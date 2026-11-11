@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared helpers for the shield-* scripts. Sourced, not run directly.
 # If more than one device is connected, export ANDROID_SERIAL=<ip>:5555 first.
 set -euo pipefail
@@ -5,6 +6,7 @@ export LC_ALL=C   # stable sort order so comm(1) works
 
 TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_ROOT="$TOOLS_DIR/backups"
+# shellcheck disable=SC2034 # used by shield-launcher.sh, which sources this file
 STOCK_LAUNCHER="com.google.android.tvlauncher"
 
 # Never disable/uninstall these, even if someone uncomments them in debloat.txt.
@@ -26,6 +28,7 @@ pkgs() { ash pm list packages "$@" | sed 's/^package://' | sort; }
 
 has()  { grep -xF -- "$1" >/dev/null <<<"$2"; }   # has <item> <newline-list>
 
+# shellcheck disable=SC2086 # unquoted on purpose: split PROTECTED into one name per line
 is_protected() { grep -xF -- "$1" >/dev/null <<<"$(printf "%s\n" $PROTECTED)"; }
 
 home_activity() {
@@ -42,5 +45,6 @@ require_device() {
 }
 
 latest_backup() {
+  # shellcheck disable=SC2012 # backup dirs are our own YYYYMMDD-HHMMSS names
   ls -1d "$BACKUP_ROOT"/2*/ 2>/dev/null | sort | tail -1 | sed 's:/$::'
 }

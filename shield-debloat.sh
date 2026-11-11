@@ -3,6 +3,9 @@
 #
 #   ./shield-debloat.sh           dry run - shows exactly what would happen
 #   ./shield-debloat.sh --apply   do it
+#   ./shield-debloat.sh --only <package> [--apply]
+#                                 just that one package (same safety checks; animation
+#                                 speed is left alone)
 #
 # Package list: debloat.local.txt if it exists (your private copy, git-ignored),
 # otherwise debloat.txt. Override with DEBLOAT_LIST=path/to/list.txt.
@@ -14,14 +17,28 @@ source "$(dirname "$0")/common.sh"
 require_device
 
 ANIM_SCALE="${ANIM_SCALE:-0.5}"   # 0.5 = twice as fast, 0 = off, 1 = stock
-LIST="${DEBLOAT_LIST:-$TOOLS_DIR/debloat.local.txt}"
-[ -f "$LIST" ] || [ -n "${DEBLOAT_LIST:-}" ] || LIST="$TOOLS_DIR/debloat.txt"
-[ -f "$LIST" ] || die "package list not found: $LIST"
-APPLY=0; [ "${1:-}" = "--apply" ] && APPLY=1
+APPLY=0; ONLY=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --apply) APPLY=1 ;;
+    --only) ONLY="${2:-}"; [ -n "$ONLY" ] || die "--only needs a package name"; shift ;;
+    *) die "usage: $0 [--only <package>] [--apply]" ;;
+  esac
+  shift
+done
+
+if [ -n "$ONLY" ]; then
+  packages="$ONLY"
+else
+  LIST="${DEBLOAT_LIST:-$TOOLS_DIR/debloat.local.txt}"
+  [ -f "$LIST" ] || [ -n "${DEBLOAT_LIST:-}" ] || LIST="$TOOLS_DIR/debloat.txt"
+  [ -f "$LIST" ] || die "package list not found: $LIST"
+  packages=$(sed -e 's/#.*//' -e 's/[[:space:]]//g' "$LIST" | grep -v '^$' || true)
+fi
 
 backup=$(latest_backup)
 [ -n "$backup" ] || die "no backup found - run ./shield-backup.sh first"
-echo "Package list: $LIST"
+if [ -n "$ONLY" ]; then echo "Package:      $ONLY"; else echo "Package list: $LIST"; fi
 echo "Safety net:   $backup"
 [ "$APPLY" = 1 ] || echo "(dry run - add --apply to make changes)"
 
@@ -48,15 +65,17 @@ while read -r p; do
   out=$("${cmd[@]}" 2>&1 || true)
   if grep -F -- "$ok" >/dev/null <<<"$out"; then echo "  $action $p"
   else echo "  FAIL   $p -> $out"; fi
-done < <(sed -e 's/#.*//' -e 's/[[:space:]]//g' "$LIST" | grep -v '^$' || true)
+done <<<"$packages"
 
-echo "Animation scale -> $ANIM_SCALE"
-for k in window_animation_scale transition_animation_scale animator_duration_scale; do
-  cur=$(ash settings get global "$k")
-  [ "$cur" = "$ANIM_SCALE" ] && continue
-  if [ "$APPLY" = 1 ]; then ash settings put global "$k" "$ANIM_SCALE"; echo "  $k: $cur -> $ANIM_SCALE"
-  else echo "  would set $k: $cur -> $ANIM_SCALE"; fi
-done
+if [ -z "$ONLY" ]; then
+  echo "Animation scale -> $ANIM_SCALE"
+  for k in window_animation_scale transition_animation_scale animator_duration_scale; do
+    cur=$(ash settings get global "$k")
+    [ "$cur" = "$ANIM_SCALE" ] && continue
+    if [ "$APPLY" = 1 ]; then ash settings put global "$k" "$ANIM_SCALE"; echo "  $k: $cur -> $ANIM_SCALE"
+    else echo "  would set $k: $cur -> $ANIM_SCALE"; fi
+  done
+fi
 
 if [ "$APPLY" = 0 ]; then echo "$n package change(s) pending. Re-run with --apply."
 else echo "Done. Reboot to free memory from stopped services: adb reboot"; fi
